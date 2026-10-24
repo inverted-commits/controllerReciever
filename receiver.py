@@ -11,13 +11,14 @@ KEY_MAP = {
     "DOWN": Key.down,
     "LEFT": Key.left,
     "RIGHT": Key.right,
-    "A": 'z',         # 'Z' is standard for 'A' in GBA/DS emulators
-    "B": 'x',         # 'X' is standard for 'B' (running / cancel)
+    "A": 'z',          # 'Z' for A
+    "B": 'x',          # 'X' for B
+    "X": 's',          # 'S' for X (NDS menu)
+    "Y": 'a',          # 'A' for Y (NDS registered item)
     "START": Key.enter,
     "SELECT": Key.shift,
-    "L": 'a',
-    "R": 's',
-    "TURBO": Key.space # Fast forward toggle in emulators
+    "L": 'q',          # 'Q' for L shoulder
+    "R": 'w'           # 'W' for R shoulder
 }
 
 UDP_IP = "0.0.0.0"
