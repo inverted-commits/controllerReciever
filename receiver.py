@@ -60,10 +60,10 @@ def main():
             data, addr = sock.recvfrom(1024)
             message = data.decode('utf-8', errors='ignore').strip()
 
-            # Handle Auto-Discovery ping from Android phone
-            if message == "DISCOVER":
-                sock.sendto(b"DISCOVER_ACK", addr)
-                print(f"✨ Auto-discovery ping from phone at {addr[0]} -> Responded!")
+            # Respond to ping test from phone
+            if message == "PING":
+                sock.sendto(b"PONG", addr)
+                print(f"💓 Connection check from phone at {addr[0]} -> Responded PONG!")
                 continue
 
             if ":" in message:
