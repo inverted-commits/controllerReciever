@@ -1,4 +1,7 @@
+import os
+import shutil
 import socket
+import subprocess
 import sys
 import threading
 from pynput.keyboard import Controller, Key
@@ -24,6 +27,31 @@ KEY_MAP = {
 
 HOST_IP = "0.0.0.0"
 PORT = 8000
+
+def auto_setup_adb_reverse():
+    """Automatically configures ADB reverse for USB Cable mode if a phone is plugged in."""
+    adb_bin = shutil.which("adb")
+    
+    if not adb_bin:
+        candidates = [
+            os.path.expanduser("~/Library/Android/sdk/platform-tools/adb"),
+            os.path.expandvars(r"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe")
+        ]
+        for c in candidates:
+            if os.path.exists(c):
+                adb_bin = c
+                break
+
+    if adb_bin:
+        try:
+            res = subprocess.run([adb_bin, "reverse", f"tcp:{PORT}", f"tcp:{PORT}"],
+                                 capture_output=True, text=True, timeout=2)
+            if res.returncode == 0:
+                print("⚡ [Auto-Config] USB Cable 0ms Bridge connected via ADB!")
+                return True
+        except Exception:
+            pass
+    return False
 
 def handle_command(message):
     message = message.strip()
@@ -103,7 +131,12 @@ def main():
     print("=" * 60)
     print(f"📡 Port: {PORT}")
     print(f"🌐 Wi-Fi IP: {local_ip}")
-    print("🔌 USB Cable Mode: Run 'adb reverse tcp:8000 tcp:8000'")
+    
+    # Auto-configure USB Cable mode if a phone is plugged in
+    usb_active = auto_setup_adb_reverse()
+    if not usb_active:
+        print("💡 Tip: Plug in phone via USB for instant 0ms Cable mode.")
+    
     print("=" * 60)
     print("Ready for controller inputs... (Ctrl+C to stop)\n")
 
