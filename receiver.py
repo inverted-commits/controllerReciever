@@ -1,5 +1,6 @@
 import socket
 import sys
+import threading
 from pynput.keyboard import Controller, Key
 
 # Initialize virtual keyboard
@@ -21,14 +22,72 @@ KEY_MAP = {
     "R": 'w'           # 'W' for R shoulder
 }
 
-UDP_IP = "0.0.0.0"
-UDP_PORT = 8000
+HOST_IP = "0.0.0.0"
+PORT = 8000
+
+def handle_command(message):
+    message = message.strip()
+    if not message or ":" not in message:
+        return
+    try:
+        action, button = message.split(":", 1)
+        button = button.upper()
+        key = KEY_MAP.get(button)
+
+        if key is not None:
+            if action == "PRESS":
+                keyboard.press(key)
+                print(f"⬇️  Pressed:  [{button}] -> key '{key}'")
+            elif action == "RELEASE":
+                keyboard.release(key)
+                print(f"⬆️  Released: [{button}] -> key '{key}'")
+        else:
+            print(f"⚠️  Unknown button: {button}")
+    except Exception as e:
+        print(f"Command error: {e}")
+
+def run_udp_server():
+    """Listens for Wi-Fi UDP controller packets."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind((HOST_IP, PORT))
+    while True:
+        try:
+            data, addr = sock.recvfrom(1024)
+            msg = data.decode('utf-8', errors='ignore').strip()
+            handle_command(msg)
+        except Exception as e:
+            print(f"UDP error: {e}")
+
+def run_tcp_server():
+    """Listens for USB Cable (ADB Reverse) TCP streams with 0ms latency."""
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind((HOST_IP, PORT))
+    server.listen(5)
+
+    while True:
+        try:
+            client, addr = server.accept()
+            client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            print(f"🔌 USB Cable connection established from {addr}!")
+            
+            # Buffer stream processor
+            buffer = ""
+            while True:
+                chunk = client.recv(1024).decode('utf-8', errors='ignore')
+                if not chunk:
+                    break
+                buffer += chunk
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    handle_command(line)
+            print("🔌 USB Cable disconnected.")
+        except Exception as e:
+            print(f"TCP error: {e}")
 
 def get_local_ip():
-    """Attempt to discover the host's LAN IP address."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # Does not actually connect, used to find routing interface
         s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
     except Exception:
@@ -39,52 +98,21 @@ def get_local_ip():
 
 def main():
     local_ip = get_local_ip()
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.bind((UDP_IP, UDP_PORT))
-    except Exception as e:
-        print(f"Error binding to {UDP_IP}:{UDP_PORT}: {e}")
-        sys.exit(1)
-
     print("=" * 60)
-    print("🎮 Pokemon Controller Receiver (Cross-Platform)")
+    print("🎮 Pokemon Controller Dual Receiver (Wi-Fi + USB Cable)")
     print("=" * 60)
-    print(f"📡 Listening on Port: {UDP_PORT}")
-    print(f"📍 Your PC Local IP is likely: {local_ip}")
-    print("   Enter this IP in your Android controller app.")
+    print(f"📡 Port: {PORT}")
+    print(f"🌐 Wi-Fi IP: {local_ip}")
+    print("🔌 USB Cable Mode: Run 'adb reverse tcp:8000 tcp:8000'")
     print("=" * 60)
-    print("Waiting for controller signals... (Ctrl+C to stop)\n")
+    print("Ready for controller inputs... (Ctrl+C to stop)\n")
 
-    while True:
-        try:
-            data, addr = sock.recvfrom(1024)
-            message = data.decode('utf-8', errors='ignore').strip()
-
-            # Respond to ping test from phone
-            if message == "PING":
-                sock.sendto(b"PONG", addr)
-                print(f"💓 Connection check from phone at {addr[0]} -> Responded PONG!")
-                continue
-
-            if ":" in message:
-                action, button = message.split(":", 1)
-                button = button.upper()
-                key = KEY_MAP.get(button)
-
-                if key is not None:
-                    if action == "PRESS":
-                        keyboard.press(key)
-                        print(f"⬇️  Pressed:  [{button}] -> key '{key}'")
-                    elif action == "RELEASE":
-                        keyboard.release(key)
-                        print(f"⬆️  Released: [{button}] -> key '{key}'")
-                else:
-                    print(f"⚠️  Unknown button: {button}")
-        except KeyboardInterrupt:
-            print("\nShutting down receiver.")
-            break
-        except Exception as e:
-            print(f"Error handling packet: {e}")
+    # Start Wi-Fi (UDP) thread
+    threading.Thread(target=run_udp_server, daemon=True).start()
+    
+    # Start USB Cable (TCP) server
+    run_tcp_server()
 
 if __name__ == "__main__":
     main()
+
