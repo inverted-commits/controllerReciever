@@ -26,7 +26,7 @@ KEY_MAP = {
 }
 
 HOST_IP = "0.0.0.0"
-PORT = 8000
+PORT = 8765
 
 def auto_setup_adb_reverse():
     """Automatically configures ADB reverse for USB Cable mode if a phone is plugged in."""
